@@ -153,7 +153,7 @@ import com.mongodb.util.JSONParseException;
  * @author Mark Paluch
  */
 @SuppressWarnings("deprecation")
-public class MongoTemplate implements MongoOperations, ApplicationContextAware {
+public class MongoTemplate implements MongoOperations, ApplicationContextAware, IndexOperationsProvider {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(MongoTemplate.class);
 	private static final String ID_FIELD = "_id";
@@ -238,7 +238,7 @@ public class MongoTemplate implements MongoOperations, ApplicationContextAware {
 		mappingContext = this.mongoConverter.getMappingContext();
 		// We create indexes based on mapping events
 		if (null != mappingContext && mappingContext instanceof MongoMappingContext) {
-			indexCreator = new MongoPersistentEntityIndexCreator((MongoMappingContext) mappingContext, mongoDbFactory);
+			indexCreator = new MongoPersistentEntityIndexCreator((MongoMappingContext) mappingContext, this);
 			eventPublisher = new MongoMappingEventPublisher(indexCreator);
 			if (mappingContext instanceof ApplicationEventPublisherAware) {
 				((ApplicationEventPublisherAware) mappingContext).setApplicationEventPublisher(eventPublisher);
@@ -547,11 +547,11 @@ public class MongoTemplate implements MongoOperations, ApplicationContextAware {
 	}
 
 	public IndexOperations indexOps(String collectionName) {
-		return new DefaultIndexOperations(this, collectionName);
+		return new DefaultIndexOperations(getMongoDbFactory(), collectionName);
 	}
 
 	public IndexOperations indexOps(Class<?> entityClass) {
-		return new DefaultIndexOperations(this, determineCollectionName(entityClass));
+		return new DefaultIndexOperations(getMongoDbFactory(), determineCollectionName(entityClass));
 	}
 
 	public BulkOperations bulkOps(BulkMode bulkMode, String collectionName) {
@@ -2041,6 +2041,10 @@ public class MongoTemplate implements MongoOperations, ApplicationContextAware {
 		} catch (RuntimeException e) {
 			throw potentiallyConvertRuntimeException(e, exceptionTranslator);
 		}
+	}
+
+	public PersistenceExceptionTranslator getExceptionTranslator() {
+		return exceptionTranslator;
 	}
 
 	private MongoPersistentEntity<?> getPersistentEntity(Class<?> type) {
